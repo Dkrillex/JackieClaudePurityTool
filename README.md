@@ -106,6 +106,18 @@ streamlit run app.py
 
 ---
 
+## 在线部署（Vercel）
+
+仓库已内置「静态前端 + Python Serverless 函数」版本（`index.html` + `api/purity.py`），
+可一键部署到 [Vercel](https://vercel.com/)：把仓库推到 GitHub → 在 Vercel 导入 → Deploy。
+
+> Serverless 无 `curl`，函数会自动改用纯 Python 传输（`PURITY_TRANSPORT=urllib`）。
+> Streamlit 版（`relay_purity_ui/`）无法部署到 Vercel，仅用于本地。
+
+详细步骤、时长限制与**访问保护**注意事项见 [`docs/DEPLOY_VERCEL.md`](docs/DEPLOY_VERCEL.md)。
+
+---
+
 ## 作为库调用
 
 ```python

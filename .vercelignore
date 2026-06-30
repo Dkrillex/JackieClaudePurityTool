@@ -1,0 +1,8 @@
+# 本地 Streamlit 界面不部署到 Vercel（Vercel 跑不了 Streamlit）
+relay_purity_ui/
+# 早期单文件版存档，无需部署
+backup/
+# 文档
+docs/
+__pycache__/
+*.pyc

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>资源纯度测试 · Relay Purity Test</title>
+<style>
+  :root { --bg:#0f1115; --card:#171a21; --line:#262b36; --fg:#e6e9ef; --mut:#9aa4b2;
+          --pure:#1b5e20; --okk:#33691e; --warn:#f9a825; --bad:#b71c1c; --acc:#4f8cff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif; }
+  .wrap { max-width:1080px; margin:0 auto; padding:28px 20px 60px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--mut); margin:0 0 20px; }
+  h2 { font-size:16px; margin:28px 0 12px; border-left:3px solid var(--acc); padding-left:10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:middle; }
+  th { color:var(--mut); font-weight:600; font-size:12px; }
+  input[type=text],input[type=number] { width:100%; background:#0c0e13; border:1px solid var(--line);
+         color:var(--fg); border-radius:6px; padding:7px 9px; font-size:13px; }
+  input::placeholder { color:#5a6473; }
+  button { cursor:pointer; border:none; border-radius:8px; font-size:14px; font-weight:600; }
+  .btn { background:var(--acc); color:#fff; padding:11px 18px; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .btn-ghost { background:#222733; color:var(--fg); padding:6px 12px; font-weight:500; font-size:13px; }
+  .btn-del { background:transparent; color:#ff6b6b; padding:4px 8px; }
+  .row-opts { display:flex; gap:18px; flex-wrap:wrap; align-items:center; margin:12px 0; }
+  label.chk { display:inline-flex; align-items:center; gap:6px; color:var(--mut); cursor:pointer; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:12px; color:#fff; }
+  .b-pure{background:var(--pure)} .b-ok{background:var(--okk)} .b-warn{background:var(--warn);color:#000} .b-bad{background:var(--bad)}
+  .muted { color:var(--mut); font-size:12px; }
+  .total { font-weight:700; }
+  details { border:1px solid var(--line); border-radius:8px; margin:8px 0; padding:8px 12px; background:#12151c; }
+  summary { cursor:pointer; font-weight:600; }
+  .dim { margin:8px 0 2px; font-weight:600; }
+  .dim ul { margin:4px 0 10px; padding-left:18px; color:var(--mut); }
+  .warnbox { background:#2a1d0a; border:1px solid #5a3b0a; color:#f0c674; padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:18px; }
+  .spin { display:inline-block; width:14px; height:14px; border:2px solid #fff5; border-top-color:#fff;
+          border-radius:50%; animation:r .7s linear infinite; vertical-align:-2px; margin-right:6px; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  a.dl { color:var(--acc); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧪 资源纯度测试 · Relay Purity Test</h1>
+  <p class="sub">客观探针评估 API 中转 / 聚合平台的模型资源是否被「掺水 / 降智 / 套壳 / 篡改」</p>
+
+  <div class="warnbox">
+    ⚠️ 本页会把你填写的 <b>API Key</b> 发送到 <code>/api/purity</code> 后端实时测试。请仅在受信任、已加访问保护的部署上使用，测试后建议轮换 Key。
+  </div>
+
+  <h2>1) 配置待测渠道</h2>
+  <div class="card">
+    <table id="tbl">
+      <thead><tr>
+        <th style="width:14%">渠道名</th><th style="width:30%">Base URL</th>
+        <th style="width:28%">API Key</th><th style="width:16%">模型</th>
+        <th style="width:7%">基准</th><th style="width:5%"></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div style="margin-top:10px"><button class="btn-ghost" onclick="addRow()">+ 添加渠道</button></div>
+  </div>
+
+  <div class="row-opts">
+    <span class="muted">探针：</span>
+    <label class="chk"><input type="checkbox" class="pb" value="protocol" checked> 协议(25)</label>
+    <label class="chk"><input type="checkbox" class="pb" value="freshness" checked> 新鲜度(25)</label>
+    <label class="chk"><input type="checkbox" class="pb" value="reasoning" checked> 推理(20)</label>
+    <label class="chk"><input type="checkbox" class="pb" value="instruction" checked> 指令(15)</label>
+    <label class="chk"><input type="checkbox" class="pb" value="stream" checked> 流式(10)</label>
+    <label class="chk"><input type="checkbox" class="pb" value="leakage" checked> 安全(5)</label>
+    <span class="muted">超时(秒)：</span>
+    <input type="number" id="timeout" value="30" min="5" max="120" style="width:70px">
+  </div>
+
+  <button class="btn" id="run" onclick="run()">🚀 开始测试</button>
+  <span id="status" class="muted" style="margin-left:10px"></span>
+
+  <div id="out"></div>
+</div>
+
+<script>
+const ROWS = document.getElementById('rows');
+function addRow(p={}) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" class="c-name" value="${p.name||''}" placeholder="渠道A"></td>
+    <td><input type="text" class="c-url" value="${p.url||''}" placeholder="https://your-relay.com/v1"></td>
+    <td><input type="text" class="c-key" value="${p.key||''}" placeholder="sk-..."></td>
+    <td><input type="text" class="c-model" value="${p.model||'claude-opus-4-8'}"></td>
+    <td style="text-align:center"><input type="checkbox" class="c-ref" ${p.reference?'checked':''}></td>
+    <td><button class="btn-del" onclick="this.closest('tr').remove()">✕</button></td>`;
+  ROWS.appendChild(tr);
+}
+addRow({reference:true});
+
+function gradeClass(t){ return t>=90?'b-pure':t>=70?'b-ok':t>=45?'b-warn':'b-bad'; }
+
+function collect() {
+  const provs = [];
+  for (const tr of ROWS.querySelectorAll('tr')) {
+    const url = tr.querySelector('.c-url').value.trim();
+    const key = tr.querySelector('.c-key').value.trim();
+    if (!url || !key) continue;
+    provs.push({
+      name: tr.querySelector('.c-name').value.trim() || url,
+      url, key,
+      model: tr.querySelector('.c-model').value.trim() || 'claude-opus-4-8',
+      reference: tr.querySelector('.c-ref').checked,
+    });
+  }
+  const probes = [...document.querySelectorAll('.pb:checked')].map(x=>x.value);
+  return { providers: provs, probes, timeout: +document.getElementById('timeout').value,
+           fetch_self_report: true };
+}
+
+const KEYS = [['protocol','协议'],['freshness','新鲜度'],['reasoning','推理'],
+              ['instruction','指令'],['stream','流式'],['leakage','安全']];
+
+async function run() {
+  const payload = collect();
+  const st = document.getElementById('status');
+  const btn = document.getElementById('run');
+  if (!payload.providers.length) { st.textContent='请至少填写一个含 URL 和 Key 的渠道'; return; }
+  if (!payload.probes.length) { st.textContent='请至少勾选一个探针'; return; }
+  btn.disabled = true;
+  st.innerHTML = '<span class="spin"></span>测试中…（每个渠道需多次调用，请耐心等待）';
+  document.getElementById('out').innerHTML = '';
+  try {
+    const r = await fetch('/api/purity', {method:'POST', headers:{'Content-Type':'application/json'},
+                          body: JSON.stringify(payload)});
+    const data = await r.json();
+    if (data.error) { st.textContent = '错误：' + data.error; btn.disabled=false; return; }
+    render(data); st.textContent = '完成 ✓';
+  } catch(e) {
+    st.textContent = '请求失败：' + e.message + '（可能是函数超时，试试减少渠道/探针或调小超时）';
+  }
+  btn.disabled = false;
+}
+
+function render(data) {
+  const rs = [...data.results].sort((a,b)=>b.total-a.total);
+  let h = '<h2>2) 纯度对照总览</h2><div class="card"><table><thead><tr><th>渠道</th>';
+  for (const [,t] of KEYS) h += `<th>${t}</th>`;
+  h += '<th>总分</th><th>评级</th></tr></thead><tbody>';
+  for (const r of rs) {
+    const cell = {}; r.dims.forEach(d=>cell[d.key]=d.score);
+    h += `<tr><td>${r.reference?'⭐ ':''}<b>${esc(r.name)}</b><div class="muted">${esc(r.model)}</div></td>`;
+    for (const [k] of KEYS) h += `<td>${k in cell ? cell[k] : '-'}</td>`;
+    h += `<td class="total">${r.total}</td><td><span class="badge ${gradeClass(r.total)}">${esc(r.grade)}</span></td></tr>`;
+  }
+  h += '</tbody></table></div>';
+
+  h += '<h2>3) 逐渠道明细</h2>';
+  for (const r of rs) {
+    h += `<details ${r.reference?'open':''}><summary>${r.reference?'⭐ ':''}${esc(r.name)} — ${r.total}/100　${esc(r.grade)}</summary>`;
+    h += `<div class="muted">端点：${esc(r.url)}</div>`;
+    for (const d of r.dims) {
+      h += `<div class="dim">${vIcon(d.verdict)} ${esc(d.title)}　${d.score}/${d.maximum}</div><ul>`;
+      for (const x of d.details) h += `<li>${esc(x)}</li>`;
+      h += '</ul>';
+    }
+    if (r.self_report) h += `<div class="muted">模型自报身份（不计分）：${esc(r.self_report)}</div>`;
+    h += '</details>';
+  }
+
+  h += '<h2>4) 导出报告</h2><div class="card">';
+  const blob = encodeURIComponent(data.markdown||'');
+  h += `<a class="dl" download="purity_report.md" href="data:text/markdown;charset=utf-8,${blob}">⬇️ 下载 Markdown 报告</a></div>`;
+  document.getElementById('out').innerHTML = h;
+}
+
+function vIcon(v){ return {ok:'✅',warn:'⚠️',fail:'❌',skip:'➖'}[v]||''; }
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+</script>
+</body>
+</html>
