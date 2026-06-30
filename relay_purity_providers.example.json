@@ -1,0 +1,23 @@
+{
+  "providers": [
+    {
+      "name": "渠道A",
+      "url": "https://relay-a.example.com/v1",
+      "key": "sk-REPLACE_WITH_A_KEY",
+      "model": "claude-opus-4-8",
+      "reference": true
+    },
+    {
+      "name": "渠道B",
+      "url": "https://relay-b.example.com/v1",
+      "key": "sk-REPLACE_WITH_B_KEY",
+      "model": "claude-opus-4-8"
+    },
+    {
+      "name": "渠道C",
+      "url": "https://relay-c.example.com/v1",
+      "key": "sk-REPLACE_WITH_C_KEY",
+      "model": "claude-opus-4-8"
+    }
+  ]
+}
