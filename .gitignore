@@ -1,0 +1,39 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.Python
+
+# ---- 虚拟环境 ----
+.venv/
+venv/
+env/
+ENV/
+
+# ---- 测试 / 缓存 ----
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ---- 含密钥的运行配置（仅保留 *.example.json）----
+providers.json
+*.local.json
+.env
+.env.*
+
+# ---- 生成的报告产物 ----
+report.md
+*_report_*.md
+purity_report_*.md
+purity_scores_*.csv
+
+# ---- 编辑器 / 系统 ----
+.idea/
+.vscode/
+.DS_Store

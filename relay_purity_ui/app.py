@@ -16,18 +16,18 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
-# 复用同仓库的核心探测逻辑（relay_purity_test.py 在上一级目录）
+# 复用同仓库的核心库 purity/（在上一级目录）
 _PARENT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PARENT not in sys.path:
     sys.path.insert(0, _PARENT)
 
-# 直接从核心模块 relay_purity_test.py 导入探测能力（这就是本界面的"引擎"）
-from relay_purity_test import (  # noqa: E402
+# 直接从核心库 purity 导入探测能力（这就是本界面的"引擎"）
+from purity import (  # noqa: E402
     RelayClient,            # 渠道客户端（OpenAI + Anthropic 双协议）
     ProviderResult,         # 单渠道评估结果
     VERDICT_ICON,           # 判定图标
     render_markdown,        # 生成 Markdown 报告
-    _clip,                  # 文本截断工具
+    clip,                   # 文本截断工具
     probe_protocol,         # 协议纯度探针
     probe_freshness,        # 模型新鲜度探针
     probe_reasoning,        # 推理完整性探针
@@ -68,7 +68,7 @@ def run_provider(prov: dict, probe_fns: list, timeout: int,
         sr, _ = client.smart_ask(
             "你是哪个模型？请只回答模型名称与版本。", max_tokens=48
         )
-        self_report = _clip(sr, 80)
+        self_report = clip(sr, 80)
     return ProviderResult(
         prov["name"], client.root, prov["model"],
         bool(prov.get("reference")), dims, self_report,
