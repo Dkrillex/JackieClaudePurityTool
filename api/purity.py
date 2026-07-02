@@ -20,6 +20,7 @@ POST /api/purity
 import json
 import os
 import sys
+import time
 from http.server import BaseHTTPRequestHandler
 
 # 让函数能 import 到仓库根目录的 purity 包
@@ -51,6 +52,12 @@ PROBE_BY_KEY = {
 }
 DEFAULT_KEYS = list(PROBE_BY_KEY.keys())
 
+# 时间预算（秒）：应显著小于 vercel.json 的 maxDuration，给最后一个探针留出收尾余量。
+# 可用环境变量 PURITY_BUDGET 覆盖。
+TIME_BUDGET = float(os.environ.get("PURITY_BUDGET", "45"))
+# 单个上游请求的最长等待（秒），服务端强制封顶。
+MAX_REQ_TIMEOUT = int(os.environ.get("PURITY_MAX_REQ_TIMEOUT", "12"))
+
 
 def _dim_to_dict(d) -> dict:
     return {
@@ -80,17 +87,27 @@ def _result_to_dict(r) -> dict:
 
 def run_audit(payload: dict) -> dict:
     providers = payload.get("providers") or []
-    timeout = int(payload.get("timeout", 30))
+    # 单请求超时在服务端封顶，避免某个卡死的上游吃掉整个函数时间预算
+    timeout = min(int(payload.get("timeout", 20)), MAX_REQ_TIMEOUT)
     fetch_self_report = bool(payload.get("fetch_self_report", True))
     keys = payload.get("probes") or DEFAULT_KEYS
     probe_fns = [PROBE_BY_KEY[k] for k in keys if k in PROBE_BY_KEY]
 
+    # 时间预算：留出安全余量，赶在 Vercel maxDuration 之前主动收尾并返回 JSON
+    budget = float(payload.get("budget", TIME_BUDGET))
+    deadline = time.monotonic() + budget
+    partial = False
+
     results = []
+    requested = len(probe_fns)
     for prov in providers:
         url = (prov.get("url") or "").strip()
         key = (prov.get("key") or "").strip()
         if not url or not key:
             continue
+        if time.monotonic() >= deadline:
+            partial = True
+            break
         client = RelayClient(url, key, prov.get("model", "claude-opus-4-8"),
                              timeout)
         res = evaluate(
@@ -99,13 +116,22 @@ def run_audit(payload: dict) -> dict:
             reference=bool(prov.get("reference")),
             probes=probe_fns,
             fetch_self_report=fetch_self_report,
+            deadline=deadline,
         )
+        if len(res.dims) < requested:
+            partial = True
         results.append(res)
 
-    return {
+    out = {
         "results": [_result_to_dict(r) for r in results],
         "markdown": render_markdown(results) if results else "",
     }
+    if partial:
+        out["warning"] = (
+            f"已接近 {int(budget)}s 时间预算，仅返回部分结果。"
+            "请一次只测 1 个渠道、少勾几个探针、调小超时，或升级 Vercel 计划提高 maxDuration。"
+        )
+    return out
 
 
 class handler(BaseHTTPRequestHandler):

@@ -148,7 +148,8 @@ async function run() {
       btn.disabled = false; return;
     }
     if (data.error) { st.textContent = '错误：' + data.error; btn.disabled=false; return; }
-    render(data); st.textContent = '完成 ✓';
+    render(data);
+    st.textContent = data.warning ? ('⚠️ ' + data.warning) : '完成 ✓';
   } catch(e) {
     st.textContent = '请求失败：' + e.message + '（网络错误或请求被中断）';
   }

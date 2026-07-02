@@ -1,5 +1,6 @@
 """渠道评估：把多个探针的结果汇总成一个渠道的纯度总分。"""
 
+import time
 from dataclasses import dataclass, field
 
 from .client import RelayClient
@@ -45,7 +46,8 @@ class ProviderResult:
 
 
 def evaluate(client: RelayClient, name: str, reference: bool,
-             probes=None, fetch_self_report: bool = True) -> ProviderResult:
+             probes=None, fetch_self_report: bool = True,
+             deadline: float = None) -> ProviderResult:
     """对单个渠道运行探针并返回结果（命令行版本会打印进度）。
 
     Args:
@@ -54,18 +56,24 @@ def evaluate(client: RelayClient, name: str, reference: bool,
         reference: 是否为对照基准。
         probes: 要运行的探针函数列表，默认全部 PROBES。
         fetch_self_report: 是否额外采集模型自报身份（仅记录）。
+        deadline: `time.monotonic()` 时间戳；到点后停止运行剩余探针，
+                  只返回已完成部分（用于 Serverless 防止被平台超时强杀）。
     """
     probes = probes or PROBES
     print(f"\n  ── 测试渠道：{name}（{client.model} @ {client.root}）")
     dims = []
     for probe in probes:
+        if deadline is not None and time.monotonic() >= deadline:
+            print("     ⏱ 达到时间预算，跳过剩余探针")
+            break
         d = probe(client)
         icon = VERDICT_ICON.get(d.verdict, "")
         print(f"     {icon} {d.title:<10} {d.score:>4.1f}/{d.maximum:<4.0f}")
         dims.append(d)
 
     self_report = ""
-    if fetch_self_report:
+    if fetch_self_report and not (deadline is not None
+                                  and time.monotonic() >= deadline):
         # 模型自报身份：仅信息记录（方法论：不可靠，不计分）
         sr, _ = client.smart_ask(
             "你是哪个模型？请只回答模型名称与版本。", max_tokens=48
