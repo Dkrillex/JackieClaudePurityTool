@@ -32,11 +32,12 @@ vercel --prod   # 部署到生产
 ## 必须知道的限制
 
 1. **函数执行时长**：一次完整评估对每个渠道要顺序发 ~13 次模型请求，可能要几十秒。
-   - `vercel.json` 已设 `maxDuration: 60`。**Hobby（免费）计划单函数上限约 60s**，渠道多 / 模型慢时可能超时（`FUNCTION_INVOCATION_TIMEOUT`）；
-   - 后端已内置**时间预算保护**：默认约 45s 主动收尾，返回已完成的部分结果 + `warning`，避免被平台硬杀导致前端收到非 JSON 报错。可用环境变量微调：
-     - `PURITY_BUDGET`（秒，默认 `45`）：应显著小于 `maxDuration`；升到 Pro/加大 `maxDuration` 后可同步调大。
-     - `PURITY_MAX_REQ_TIMEOUT`（秒，默认 `12`）：单个上游请求的最长等待，防止某个卡死渠道吃掉整段预算。
-   - 建议：**一次只测 1 个渠道**、或在前端**少勾几个探针**、把超时调小；需要更长时长请用 Pro 计划并同步调大 `maxDuration` 与 `PURITY_BUDGET`。
+   - 各套餐 `maxDuration` 上限（2026，Fluid Compute）：**Hobby（免费）最高 300s**；**Pro / Enterprise 最高 800s**。低于 300s 通用；超过 300s 需 Pro/Enterprise。
+   - `vercel.json` 已设 `maxDuration: 300`、`memory: 1024`（对 `api/purity.py` 这个 Python 函数生效；本项目是「静态 `index.html` + Python 函数」，**不是 Next.js**，无 `route.ts`）。
+   - 后端已内置**时间预算保护**：接近预算就主动收尾，返回已完成的部分结果 + `warning`，避免被平台硬杀导致前端收到非 JSON 报错。已在 `vercel.json` 的 `env` 里配好，可按需调：
+     - `PURITY_BUDGET`（秒，默认 `280`）：必须**小于** `maxDuration`；改 `maxDuration` 时同步改它。
+     - `PURITY_MAX_REQ_TIMEOUT`（秒，默认 `30`）：单个上游请求的最长等待，防止某个卡死渠道吃掉整段预算。
+   - 仍嫌不够就升级 Pro 把 `maxDuration` 调到 800、`PURITY_BUDGET` 调到 ~760；或本地用 CLI / Streamlit 版跑（无平台超时限制）。
 2. **无 curl**：Serverless 沙箱没有 `curl`，已通过 `PURITY_TRANSPORT=urllib`（纯 Python 传输）解决，无需你操作。
 3. **冷启动**：首次请求可能多几百毫秒，正常。
 

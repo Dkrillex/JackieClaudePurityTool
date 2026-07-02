@@ -2,12 +2,14 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/purity.py": {
-      "maxDuration": 60,
-      "memory": 512,
+      "maxDuration": 300,
+      "memory": 1024,
       "includeFiles": "purity/**"
     }
   },
   "env": {
-    "PURITY_TRANSPORT": "urllib"
+    "PURITY_TRANSPORT": "urllib",
+    "PURITY_BUDGET": "280",
+    "PURITY_MAX_REQ_TIMEOUT": "30"
   }
 }
