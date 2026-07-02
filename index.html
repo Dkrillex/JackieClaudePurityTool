@@ -67,10 +67,11 @@
 
   <div class="row-opts">
     <span class="muted">探针：</span>
-    <label class="chk"><input type="checkbox" class="pb" value="protocol" checked> 协议(25)</label>
-    <label class="chk"><input type="checkbox" class="pb" value="freshness" checked> 新鲜度(25)</label>
-    <label class="chk"><input type="checkbox" class="pb" value="reasoning" checked> 推理(20)</label>
+    <label class="chk"><input type="checkbox" class="pb" value="protocol" checked> 协议(20)</label>
+    <label class="chk"><input type="checkbox" class="pb" value="freshness" checked> 新鲜度(20)</label>
+    <label class="chk"><input type="checkbox" class="pb" value="reasoning" checked> 推理(15)</label>
     <label class="chk"><input type="checkbox" class="pb" value="instruction" checked> 指令(15)</label>
+    <label class="chk"><input type="checkbox" class="pb" value="injection" checked> 注入(15)</label>
     <label class="chk"><input type="checkbox" class="pb" value="stream" checked> 流式(10)</label>
     <label class="chk"><input type="checkbox" class="pb" value="leakage" checked> 安全(5)</label>
     <span class="muted">超时(秒)：</span>
@@ -119,7 +120,7 @@ function collect() {
 }
 
 const KEYS = [['protocol','协议'],['freshness','新鲜度'],['reasoning','推理'],
-              ['instruction','指令'],['stream','流式'],['leakage','安全']];
+              ['instruction','指令'],['injection','注入'],['stream','流式'],['leakage','安全']];
 
 async function run() {
   const payload = collect();
@@ -133,11 +134,23 @@ async function run() {
   try {
     const r = await fetch('/api/purity', {method:'POST', headers:{'Content-Type':'application/json'},
                           body: JSON.stringify(payload)});
-    const data = await r.json();
+    const raw = await r.text();
+    let data;
+    try { data = JSON.parse(raw); }
+    catch(_) {
+      // 后端没返回 JSON —— 多半是函数超时/崩溃，Vercel 返回了自己的错误页
+      const hint = r.status === 504
+        ? '函数执行超时（504）。请：只测 1 个渠道、少勾几个探针、把上面的“超时(秒)”调小（如 15），或升级 Vercel 计划提高 maxDuration。'
+        : `函数返回了非 JSON（HTTP ${r.status}）。多半是超时或运行时报错，请到 Vercel → 项目 → Logs 查看 /api/purity 的日志。`;
+      st.textContent = `请求失败：${hint}`;
+      document.getElementById('out').innerHTML =
+        `<div class="warnbox">后端原始响应（截断）：<br><code>${esc(raw.slice(0,300))}</code></div>`;
+      btn.disabled = false; return;
+    }
     if (data.error) { st.textContent = '错误：' + data.error; btn.disabled=false; return; }
     render(data); st.textContent = '完成 ✓';
   } catch(e) {
-    st.textContent = '请求失败：' + e.message + '（可能是函数超时，试试减少渠道/探针或调小超时）';
+    st.textContent = '请求失败：' + e.message + '（网络错误或请求被中断）';
   }
   btn.disabled = false;
 }
@@ -151,13 +164,13 @@ function render(data) {
     const cell = {}; r.dims.forEach(d=>cell[d.key]=d.score);
     h += `<tr><td>${r.reference?'⭐ ':''}<b>${esc(r.name)}</b><div class="muted">${esc(r.model)}</div></td>`;
     for (const [k] of KEYS) h += `<td>${k in cell ? cell[k] : '-'}</td>`;
-    h += `<td class="total">${r.total}</td><td><span class="badge ${gradeClass(r.total)}">${esc(r.grade)}</span></td></tr>`;
+    h += `<td class="total">${r.total}/${r.max_total}</td><td><span class="badge ${gradeClass(r.pct)}">${esc(r.grade)}</span></td></tr>`;
   }
   h += '</tbody></table></div>';
 
   h += '<h2>3) 逐渠道明细</h2>';
   for (const r of rs) {
-    h += `<details ${r.reference?'open':''}><summary>${r.reference?'⭐ ':''}${esc(r.name)} — ${r.total}/100　${esc(r.grade)}</summary>`;
+    h += `<details ${r.reference?'open':''}><summary>${r.reference?'⭐ ':''}${esc(r.name)} — ${r.total}/${r.max_total}　${esc(r.grade)}</summary>`;
     h += `<div class="muted">端点：${esc(r.url)}</div>`;
     for (const d of r.dims) {
       h += `<div class="dim">${vIcon(d.verdict)} ${esc(d.title)}　${d.score}/${d.maximum}</div><ul>`;

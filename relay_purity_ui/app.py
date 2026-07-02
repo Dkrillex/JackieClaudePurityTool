@@ -32,16 +32,18 @@ from purity import (  # noqa: E402
     probe_freshness,        # 模型新鲜度探针
     probe_reasoning,        # 推理完整性探针
     probe_instruction,      # 指令忠实度探针
+    probe_injection,        # 提示注入抵抗探针
     probe_stream,           # 流式完整性探针
     probe_leakage,          # 凭据/错误安全探针
 )
 
 # 探针：界面标题 -> 核心模块里的探针函数（左侧勾选用）
 PROBE_FUNCS = {
-    "协议纯度 (25)": probe_protocol,
-    "模型新鲜度 (25)": probe_freshness,
-    "推理完整性 (20)": probe_reasoning,
+    "协议纯度 (20)": probe_protocol,
+    "模型新鲜度 (20)": probe_freshness,
+    "推理完整性 (15)": probe_reasoning,
     "指令忠实度 (15)": probe_instruction,
+    "提示注入抵抗 (15)": probe_injection,
     "流式完整性 (10)": probe_stream,
     "凭据/错误安全 (5)": probe_leakage,
 }
@@ -87,9 +89,11 @@ def results_to_dataframe(results: list) -> pd.DataFrame:
             "新鲜度": cells.get("freshness", None),
             "推理": cells.get("reasoning", None),
             "指令": cells.get("instruction", None),
+            "注入": cells.get("injection", None),
             "流式": cells.get("stream", None),
             "安全": cells.get("leakage", None),
             "总分": r.total,
+            "满分": r.max_total,
             "评级": r.grade,
         })
     return pd.DataFrame(rows)
@@ -125,8 +129,8 @@ st.sidebar.caption(
 
 st.title("🧪 聚合平台 / 中转资源纯度测试")
 st.caption(
-    "客观探针 · 协议纯度 / 模型新鲜度 / 推理 / 指令忠实 / 流式 / 凭据安全　"
-    "—— 一键评估某渠道资源是否被「掺水 / 降智 / 套壳 / 篡改」"
+    "客观探针 · 协议纯度 / 模型新鲜度 / 推理 / 指令忠实 / 提示注入抵抗 / 流式 / 凭据安全　"
+    "—— 一键评估某渠道资源是否被「掺水 / 降智 / 套壳 / 篡改 / 注入」"
 )
 
 st.subheader("1) 配置待测渠道")
@@ -228,20 +232,19 @@ if results:
 
     df = results_to_dataframe(results)
 
-    def _color_total(val):
-        try:
-            v = float(val)
-        except (TypeError, ValueError):
-            return ""
-        if v >= 90:
+    def _color_grade(val):
+        s = str(val)
+        if "PURE" in s:
             return "background-color:#1b5e20;color:white"
-        if v >= 70:
+        if "基本纯净" in s:
             return "background-color:#33691e;color:white"
-        if v >= 45:
+        if "掺水" in s:
             return "background-color:#f9a825;color:black"
-        return "background-color:#b71c1c;color:white"
+        if "掺假" in s:
+            return "background-color:#b71c1c;color:white"
+        return ""
 
-    styled = df.style.map(_color_total, subset=["总分"])
+    styled = df.style.map(_color_grade, subset=["评级"])
     st.dataframe(styled, use_container_width=True, hide_index=True)
     st.caption("⭐ = 基准渠道。分越高资源越「纯」（原生协议齐全、模型不降智、无篡改）。")
 
@@ -249,7 +252,7 @@ if results:
     st.subheader("3) 逐渠道明细")
     for r in sorted(results, key=lambda x: -x.total):
         star = "⭐ " if r.reference else ""
-        with st.expander(f"{star}{r.name} — {r.total:.0f}/100　{r.grade}",
+        with st.expander(f"{star}{r.name} — {r.total:.0f}/{r.max_total:.0f}　{r.grade}",
                          expanded=r.reference):
             st.caption(f"端点：{r.url}　模型：{r.model}")
             for d in r.dims:

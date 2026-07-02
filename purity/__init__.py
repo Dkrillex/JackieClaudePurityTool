@@ -4,7 +4,7 @@
   transport  : 基于 curl 的零依赖 HTTP 传输（Resp / curl_request）
   client     : 中转客户端（RelayClient，OpenAI + Anthropic 双协议）
   util       : 文本工具（norm / contains_any / clip）
-  probes     : 6 个纯度探针（probe_* / DimResult / PROBES）
+  probes     : 7 个纯度探针（probe_* / DimResult / PROBES）
   evaluator  : 渠道评估汇总（ProviderResult / evaluate）
   report     : Markdown 报告与控制台总览（render_markdown / print_summary）
   cli        : 命令行入口（main / parse_args / load_providers）
@@ -21,6 +21,7 @@ from .probes import (
     probe_freshness,
     probe_reasoning,
     probe_instruction,
+    probe_injection,
     probe_stream,
     probe_leakage,
 )
@@ -36,7 +37,7 @@ __all__ = [
     "norm", "contains_any", "clip",
     "DimResult", "VERDICT_ICON", "PROBES",
     "probe_protocol", "probe_freshness", "probe_reasoning",
-    "probe_instruction", "probe_stream", "probe_leakage",
+    "probe_instruction", "probe_injection", "probe_stream", "probe_leakage",
     "ProviderResult", "evaluate",
     "render_markdown", "print_summary",
     "main", "parse_args", "load_providers",

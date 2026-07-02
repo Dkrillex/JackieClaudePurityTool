@@ -7,7 +7,7 @@ POST /api/purity
         {"name": "渠道A", "url": "https://...", "key": "sk-...",
          "model": "claude-opus-4-8", "reference": true}
       ],
-      "probes": ["protocol","freshness","reasoning","instruction","stream","leakage"],
+      "probes": ["protocol","freshness","reasoning","instruction","injection","stream","leakage"],
       "timeout": 30,
       "fetch_self_report": true
     }
@@ -34,6 +34,7 @@ from purity import (  # noqa: E402
     probe_freshness,
     probe_reasoning,
     probe_instruction,
+    probe_injection,
     probe_stream,
     probe_leakage,
 )
@@ -44,6 +45,7 @@ PROBE_BY_KEY = {
     "freshness": probe_freshness,
     "reasoning": probe_reasoning,
     "instruction": probe_instruction,
+    "injection": probe_injection,
     "stream": probe_stream,
     "leakage": probe_leakage,
 }
@@ -68,6 +70,8 @@ def _result_to_dict(r) -> dict:
         "model": r.model,
         "reference": r.reference,
         "total": r.total,
+        "max_total": r.max_total,
+        "pct": r.pct,
         "grade": r.grade,
         "self_report": r.self_report,
         "dims": [_dim_to_dict(d) for d in r.dims],

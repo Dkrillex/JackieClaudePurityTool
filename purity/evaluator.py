@@ -22,8 +22,19 @@ class ProviderResult:
         return round(sum(d.score for d in self.dims), 1)
 
     @property
+    def max_total(self) -> float:
+        """本次实际运行探针的满分（子集运行时 < 100）。"""
+        return round(sum(d.maximum for d in self.dims), 1)
+
+    @property
+    def pct(self) -> float:
+        """归一化到百分制（按实际运行的满分折算，保证子集也公平）。"""
+        m = self.max_total
+        return round(self.total / m * 100, 1) if m else 0.0
+
+    @property
     def grade(self) -> str:
-        t = self.total
+        t = self.pct
         if t >= 90:
             return "纯净 PURE ✅"
         if t >= 70:
@@ -63,5 +74,5 @@ def evaluate(client: RelayClient, name: str, reference: bool,
 
     res = ProviderResult(name, client.root, client.model, reference, dims,
                          self_report)
-    print(f"     ── 纯度总分：{res.total}/100 → {res.grade}")
+    print(f"     ── 纯度总分：{res.total}/{res.max_total:.0f} → {res.grade}")
     return res
